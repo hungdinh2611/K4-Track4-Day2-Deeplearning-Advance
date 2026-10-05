@@ -20,8 +20,9 @@ ROOT = Path(__file__).resolve().parents[3]
 SUBMISSION_DIR = ROOT / "submissions" / "2A202602524_DinhBaoHung"
 CODE_DIR = SUBMISSION_DIR / "code"
 DATA_IMAGES_DIR = ROOT / "data"
-EPOCHS = 3
-BATCH_SIZE = 8
+EPOCHS = 10
+BATCH_SIZE = 64 if Path("/content").is_dir() else 8
+NUM_WORKERS = 4 if Path("/content").is_dir() else 0
 SEEDS = (0, 1, 2)
 
 for directory in (ROOT, CODE_DIR):
@@ -90,7 +91,7 @@ def make_config(exp_id: str, backbone: str, *, seed: int = 0, **overrides):
         "weight_decay": 0.05,
         "warmup_epochs": 1.0,
         "amp": True,
-        "num_workers": 0,
+        "num_workers": NUM_WORKERS,
         "images_dir": str(DATA_IMAGES_DIR),
         "labels_dir": str(ROOT / "data" / "labels"),
         "out_dir": str(SUBMISSION_DIR / "runs"),
@@ -235,7 +236,10 @@ def evaluate_inference(backbone: str, recipe: dict) -> tuple[str, float]:
     model.load_state_dict(checkpoint["ema"] if checkpoint.get("ema") is not None else checkpoint["model"])
 
     _, val_df, _ = load_split(str(ROOT / "data" / "labels"), 0)
-    loader = make_loader(val_df, str(DATA_IMAGES_DIR), build_transforms(False, 224), BATCH_SIZE, False, num_workers=0)
+    loader = make_loader(
+        val_df, str(DATA_IMAGES_DIR), build_transforms(False, 224),
+        BATCH_SIZE, False, num_workers=NUM_WORKERS,
+    )
     filenames, labels, logits = predict_logits(model, loader, "cuda")
     flip_names, flip_labels, flip_logits = predict_logits(model, loader, "cuda", view_hflip)
     amp_names, amp_labels, amp_logits = predict_logits(model, loader, "cuda", amp=True)
@@ -333,7 +337,10 @@ def run_final(backbone: str, recipe: dict, inference_method: str) -> None:
 
     labels_dir = ROOT / "data" / "labels"
     _, val_df, _ = load_split(str(labels_dir), 0)
-    val_loader = make_loader(val_df, str(DATA_IMAGES_DIR), build_transforms(False, 224), BATCH_SIZE, False, num_workers=0)
+    val_loader = make_loader(
+        val_df, str(DATA_IMAGES_DIR), build_transforms(False, 224),
+        BATCH_SIZE, False, num_workers=NUM_WORKERS,
+    )
     for seed in SEEDS:
         print(f"[FINAL] seed={seed}: train calibrated final, uncalibrated copy, and baseline.", flush=True)
         final_cfg = make_config(
@@ -378,6 +385,10 @@ def run_final(backbone: str, recipe: dict, inference_method: str) -> None:
             raw_prediction.y_true,
             apply_temperature(test_logits, temperature),
         )
+        final_curve = SUBMISSION_DIR / "curves" / f"F01_{backbone}.png"
+        uncalibrated_curve = SUBMISSION_DIR / "curves" / f"F01uncal_{backbone}.png"
+        if not final_curve.exists():
+            shutil.copy2(uncalibrated_curve, final_curve)
         del model
         gc.collect()
         torch.cuda.empty_cache()
@@ -446,8 +457,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run/resume all DeepWeeds submission experiments in Colab.")
     parser.add_argument("--mode", choices=("smoke", "all"), default="smoke")
     parser.add_argument(
-        "--epochs", type=int, default=3,
-        help="epochs per full experiment (default: 3); smoke test always uses one epoch",
+        "--epochs", type=int, default=10,
+        help="epochs per full experiment (default: 10); smoke test always uses one epoch",
     )
     args = parser.parse_args()
     if args.epochs < 1:

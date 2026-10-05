@@ -34,10 +34,10 @@ python submissions/2A202602524_DinhBaoHung/code/colab_run_all.py --mode smoke
 Khi smoke test thành công, chạy toàn bộ pipeline:
 
 ```bash
-python submissions/2A202602524_DinhBaoHung/code/colab_run_all.py --mode all --epochs 3
+python submissions/2A202602524_DinhBaoHung/code/colab_run_all.py --mode all --epochs 10
 ```
 
-Runner chạy 5 backbone, 10 công thức huấn luyện, 5 phương pháp suy luận/latency, cấu hình cuối và mốc với 3 seed; sau đó tạo `results.xlsx`, báo cáo, predictions và tự kiểm tra. Mặc định 3 epoch cho mỗi thí nghiệm để giới hạn thời gian Colab; tăng `--epochs` nếu còn thời gian/GPU. Kết quả thí nghiệm hoàn tất được lưu trên Drive và dùng lại khi chạy lại cùng lệnh sau khi Colab bị ngắt. Không chạy hai runner cùng lúc.
+Runner chạy 5 backbone, 10 công thức huấn luyện, 5 phương pháp suy luận/latency, cấu hình cuối và mốc với 3 seed; sau đó tạo `results.xlsx`, báo cáo, predictions và tự kiểm tra. Mặc định 10 epoch mỗi thí nghiệm theo mức đề xuất trong hướng dẫn. Trên Colab A100 dùng batch size 64 và 4 worker; trên môi trường khác dùng batch size 8 và 0 worker. Kết quả thí nghiệm hoàn tất được lưu trên Drive và dùng lại khi chạy lại cùng lệnh sau khi Colab bị ngắt. Không chạy hai runner cùng lúc.
 
 Log sẽ in tiến độ và ETA theo batch. Kết quả lưu trong thư mục repo trên Drive; dữ liệu ảnh ở `/content` có thể cần tải lại sau khi runtime bị reset.
 
