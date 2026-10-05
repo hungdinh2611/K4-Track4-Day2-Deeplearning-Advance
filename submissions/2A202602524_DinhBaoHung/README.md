@@ -24,8 +24,22 @@ git clone https://github.com/<username>/K4-DAY02-HoVaTen-MSSV.git
 cd K4-DAY02-HoVaTen-MSSV
 ```
 
-4. Mở notebook `submissions/2A202602524_DinhBaoHung/code/lab_day2.ipynb` và chạy các ô từ trên xuống.
-5. Nếu dữ liệu chưa có trong `data/`, notebook sẽ tự tải `labels/*.csv`; nếu ảnh chưa có, cho `IMAGES_DIR = "data"` hoặc mount `data/` từ Drive vào đúng vị trí.
+4. Chạy runner từ thư mục gốc repo. Runner tự cài dependency, tải nhãn và ảnh DeepWeeds (~490 MB) nếu chưa có, kiểm tra MD5 và đủ 17.509 ảnh. Không cần upload folder `data`.
+   Trong Colab, ảnh được giải nén vào ổ local `/content/deepweeds_data` để tránh đọc từng ảnh qua Drive.
+
+```bash
+python submissions/2A202602524_DinhBaoHung/code/colab_run_all.py --mode smoke
+```
+
+Khi smoke test thành công, chạy toàn bộ pipeline:
+
+```bash
+python submissions/2A202602524_DinhBaoHung/code/colab_run_all.py --mode all --epochs 3
+```
+
+Runner chạy 5 backbone, 10 công thức huấn luyện, 5 phương pháp suy luận/latency, cấu hình cuối và mốc với 3 seed; sau đó tạo `results.xlsx`, báo cáo, predictions và tự kiểm tra. Mặc định 3 epoch cho mỗi thí nghiệm để giới hạn thời gian Colab; tăng `--epochs` nếu còn thời gian/GPU. Kết quả thí nghiệm hoàn tất được lưu trên Drive và dùng lại khi chạy lại cùng lệnh sau khi Colab bị ngắt. Không chạy hai runner cùng lúc.
+
+Log sẽ in tiến độ và ETA theo batch. Kết quả lưu trong thư mục repo trên Drive; dữ liệu ảnh ở `/content` có thể cần tải lại sau khi runtime bị reset.
 
 ## Cài đặt thư viện
 

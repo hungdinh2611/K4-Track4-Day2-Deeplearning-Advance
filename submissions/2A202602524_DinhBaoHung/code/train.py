@@ -179,7 +179,10 @@ def train_one_epoch(model, loader, criterion, optimizer, scheduler, scaler, cfg:
     use_amp = bool(cfg.amp and device.type == "cuda")
     scaler = scaler or torch.amp.GradScaler("cuda", enabled=use_amp)
     loss_total, sample_total, epoch_lrs = 0.0, 0, []
-    for images, targets, _ in loader:
+    total_steps = len(loader)
+    report_every = max(1, total_steps // 20)
+    epoch_start = time.perf_counter()
+    for step, (images, targets, _) in enumerate(loader, start=1):
         images = images.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
         optimizer.zero_grad(set_to_none=True)
@@ -200,6 +203,14 @@ def train_one_epoch(model, loader, criterion, optimizer, scheduler, scaler, cfg:
         loss_total += float(loss.detach()) * count
         sample_total += count
         epoch_lrs.append(float(optimizer.param_groups[0]["lr"]))
+        if step % report_every == 0 or step == total_steps:
+            elapsed = time.perf_counter() - epoch_start
+            eta = elapsed * (total_steps - step) / step
+            print(
+                f"train batch {step}/{total_steps} "
+                f"elapsed={elapsed / 60:.1f}m eta={eta / 60:.1f}m",
+                flush=True,
+            )
     if sample_total == 0:
         raise ValueError("Training loader không có batch")
     return {

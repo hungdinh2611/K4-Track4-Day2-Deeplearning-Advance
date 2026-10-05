@@ -253,26 +253,62 @@ def write_submission_docs(submission_dir: str | Path) -> tuple[Path, Path]:
 
     test_mean = float(np.mean(final_test))
     test_std = float(np.std(final_test, ddof=1)) if len(final_test) > 1 else float("nan")
+    final_top1 = [
+        row["test_metrics"]["top1"] for row in final_runs
+        if row.get("test_metrics") and row["test_metrics"].get("top1") is not None
+    ]
+    top1_mean = float(np.mean(final_top1))
+    top1_std = float(np.std(final_top1, ddof=1)) if len(final_top1) > 1 else float("nan")
+    from eval import CLASS_NAMES
+
+    class_rows = []
+    for class_name in CLASS_NAMES:
+        recalls = [
+            row["test_metrics"]["per_class"][class_name]["recall"]
+            for row in final_runs if row.get("test_metrics")
+        ]
+        f1_scores = [
+            row["test_metrics"]["per_class"][class_name]["f1"]
+            for row in final_runs if row.get("test_metrics")
+        ]
+        class_rows.append(
+            f"| {class_name} | {float(np.mean(recalls)):.4f} | {float(np.mean(f1_scores)):.4f} |"
+        )
+    confusion = np.mean(
+        [np.asarray(row["test_metrics"]["confusion"], dtype=float) for row in final_runs],
+        axis=0,
+    )
+    row_totals = confusion.sum(axis=1, keepdims=True)
+    confusion = np.divide(confusion, row_totals, out=np.zeros_like(confusion), where=row_totals > 0)
+    confusion_table = [
+        "| Lớp thật \\ Dự đoán | " + " | ".join(CLASS_NAMES) + " |",
+        "|" + "---|" * (len(CLASS_NAMES) + 1),
+    ]
+    confusion_table.extend(
+        f"| {name} | " + " | ".join(f"{value:.3f}" for value in row) + " |"
+        for name, row in zip(CLASS_NAMES, confusion)
+    )
     config = best_val["_config"]
     readme = submission_dir / "README.md"
-    readme.write_text(
-        "# Bài nộp Lab Day 2\n\n"
-        "Notebook chạy: `code/lab_day2.ipynb` (mở trong repo clone hoặc tải lên Colab/Kaggle).\n\n"
-        "## Môi trường và chạy lại\n"
-        f"- Python/PyTorch/torchvision/timm: "
-        f"{best_val['_metadata'].get('python_version', 'n/a')} / "
-        f"{best_val['_metadata'].get('torch_version', 'n/a')} / "
-        f"{best_val['_metadata'].get('torchvision_version', 'n/a')} / "
-        f"{best_val['_metadata'].get('timm_version', 'n/a')}.\n"
-        "- Thư viện: PyTorch, torchvision, timm, fvcore, numpy, pandas, matplotlib, openpyxl.\n"
-        "- Dữ liệu: `data/` và `data/labels/`; fold 0 nguyên bản.\n"
-        "- Chạy notebook theo thứ tự từ trên xuống. Mỗi lần chạy ghi log/checkpoint dưới `runs/`, "
-        "biểu đồ dưới `curves/`, dự đoán dưới `predictions/`.\n"
-        "- Seeds vòng chung kết: 0, 1, 2. Test chỉ chạy một lần mỗi seed.\n"
-        "- Chạy lại CLI: `python code/train.py --set exp_id=B01 backbone=resnet50 seed=0`.\n"
-        "- Hardware và phiên bản đầy đủ được ghi trong `runs/<exp_id>/seed<seed>/config.json`.\n",
-        encoding="utf-8",
-    )
+    if not readme.exists():
+        readme.write_text(
+            "# Bài nộp Lab Day 2\n\n"
+            "Notebook chạy: `code/lab_day2.ipynb` (mở trong repo clone hoặc tải lên Colab/Kaggle).\n\n"
+            "## Môi trường và chạy lại\n"
+            f"- Python/PyTorch/torchvision/timm: "
+            f"{best_val['_metadata'].get('python_version', 'n/a')} / "
+            f"{best_val['_metadata'].get('torch_version', 'n/a')} / "
+            f"{best_val['_metadata'].get('torchvision_version', 'n/a')} / "
+            f"{best_val['_metadata'].get('timm_version', 'n/a')}.\n"
+            "- Thư viện: PyTorch, torchvision, timm, fvcore, numpy, pandas, matplotlib, openpyxl.\n"
+            "- Dữ liệu: `data/` và `data/labels/`; fold 0 nguyên bản.\n"
+            "- Chạy notebook theo thứ tự từ trên xuống. Mỗi lần chạy ghi log/checkpoint dưới `runs/`, "
+            "biểu đồ dưới `curves/`, dự đoán dưới `predictions/`.\n"
+            "- Seeds vòng chung kết: 0, 1, 2. Test chỉ chạy một lần mỗi seed.\n"
+            "- Chạy lại CLI: `python code/train.py --set exp_id=B01 backbone=resnet50 seed=0`.\n"
+            "- Hardware và phiên bản đầy đủ được ghi trong `runs/<exp_id>/seed<seed>/config.json`.\n",
+            encoding="utf-8",
+        )
     report = submission_dir / "report.md"
     report.write_text(
         "# Báo cáo Lab Day 2 — DeepWeeds\n\n"
@@ -280,6 +316,7 @@ def write_submission_docs(submission_dir: str | Path) -> tuple[Path, Path]:
         f"Cấu hình có macro-F1 validation cao nhất là **{best_val['exp_id']} / {best_val['backbone']}**, "
         f"macro-F1 val {best_val['macro_f1_val']:.4f}, top-1 val {best_val['top1_val']:.4f}. "
         f"Chung kết có macro-F1 test {test_mean:.4f} ± {test_std:.4f} qua {len(final_test)} seed. "
+        f"Top-1 test {top1_mean:.4f} ± {top1_std:.4f}. "
         "Đây là số liệu được tổng hợp từ các file result.json sinh bởi các lần chạy trong repo.\n\n"
         "## Thiết lập và dữ liệu\n\n"
         f"- Fold: {config.get('fold', 0)}. Cấu hình chạy chọn theo validation; không gộp val vào train.\n"
@@ -289,6 +326,12 @@ def write_submission_docs(submission_dir: str | Path) -> tuple[Path, Path]:
         "Xem bảng Backbones, Training, Inference, Final và Latency trong `results.xlsx`; "
         "biểu đồ theo epoch nằm trong `curves/`. Chỉ diễn giải khác biệt giữa thí nghiệm có "
         "kiểm soát một yếu tố và đối chiếu độ lệch chuẩn giữa các seed.\n\n"
+        "### Recall và F1 theo lớp (trung bình các seed test)\n\n"
+        "| Lớp | Recall | F1 |\n|---|---:|---:|\n"
+        + "\n".join(class_rows)
+        + "\n\n### Ma trận nhầm lẫn chuẩn hóa theo lớp thật (trung bình các seed)\n\n"
+        + "\n".join(confusion_table)
+        + "\n\n"
         "## Kết luận, hạn chế\n\n"
         "Kết quả chỉ phản ánh fold 0, một GPU và tập dữ liệu DeepWeeds hiện tại. Chia ngẫu nhiên "
         "có thể lạc quan do ảnh cùng địa điểm/mùa; số seed và ngân sách tính toán hữu hạn. "
