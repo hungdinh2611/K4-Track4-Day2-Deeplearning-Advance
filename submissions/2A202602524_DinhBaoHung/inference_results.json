@@ -1,0 +1,52 @@
+[
+  {
+    "exp_id": "I00",
+    "method": "single center view",
+    "checkpoint": "T04/seed0",
+    "views": 1,
+    "macro_f1_val": 0.9721860103322459,
+    "top1_val": 0.9777206512425022,
+    "ece_val": 0.0073326218472110445,
+    "temperature": null
+  },
+  {
+    "exp_id": "I02",
+    "method": "flip TTA: probability mean",
+    "checkpoint": "T04/seed0",
+    "views": 2,
+    "macro_f1_val": 0.9747511824290019,
+    "top1_val": 0.9797200799771494,
+    "ece_val": 0.008619518935152571,
+    "temperature": null
+  },
+  {
+    "exp_id": "I03",
+    "method": "flip TTA: logit mean",
+    "checkpoint": "T04/seed0",
+    "views": 2,
+    "macro_f1_val": 0.9750704779563115,
+    "top1_val": 0.9800057126535275,
+    "ece_val": 0.006875028655516086,
+    "temperature": null
+  },
+  {
+    "exp_id": "I07",
+    "method": "temperature scaling",
+    "checkpoint": "T04/seed0",
+    "views": 1,
+    "macro_f1_val": 0.9721860103322459,
+    "top1_val": 0.9777206512425022,
+    "ece_val": 0.0035469159504555176,
+    "temperature": 0.9125874603802918
+  },
+  {
+    "exp_id": "I08",
+    "method": "AMP inference",
+    "checkpoint": "T04/seed0",
+    "views": 1,
+    "macro_f1_val": 0.9721860103322459,
+    "top1_val": 0.9777206512425022,
+    "ece_val": 0.007647904897546519,
+    "temperature": null
+  }
+]
