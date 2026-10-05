@@ -1,0 +1,406 @@
+Lấy repo và chuẩn bị môi trường
+Về bài lab này
+Lab cá nhân Track 4: so sánh công bằng nhiều backbone, công thức huấn luyện và kỹ thuật suy luận trên DeepWeeds, rồi chọn cấu hình tốt nhất và báo cáo bằng số liệu đo đúng cách.
+Lab Day 2 — Backbone, công thức huấn luyện và suy luận trên DeepWeeds
+Repo bài lab Day 2
+Repo bài lab (nhánh main)
+Repo bài lab Day 2
+git clone https://github.com/VinUni-AI20k/K4-Track4-Day2-Deeplearning-Advance.git
+
+Repo bài lab: https://github.com/VinUni-AI20k/K4-Track4-Day2-Deeplearning-Advance. Repo có hướng dẫn, tiêu chí chấm, khung code (starter/) và công cụ chấm eval.py. Yêu cầu về code, điểm và cách nộp nằm trong README.md, GUIDE.md và RUBRIC.md.
+
+LINK DATA: https://zenodo.org/records/7939060
+
+Nơi tải:
+
+Ảnh: Zenodo, DOI 10.5281/zenodo.7939060, file images.zip.
+Link trực tiếp: https://zenodo.org/records/7939060/files/images.zip?download=1
+MD5: b7b30f96d466fba86016aa5a26606e0f. Hãy kiểm tra checksum sau khi tải.
+Nhãn và các fold chia sẵn: github.com/AlexOlsen/DeepWeeds, thư mục labels/ gồm labels.csv, train_subset{0-4}.csv, val_subset{0-4}.csv, test_subset{0-4}.csv (cột Filename, Label, Species; chia 60/20/20).
+Ngoài ra có trong TensorFlow Datasets, nhưng nên dùng file CSV ở trên để mọi người dùng cùng một cách chia.
+Bài toán là phân loại ảnh cỏ dại ngoài đồng (robot nông nghiệp, Queensland, Úc) trên bộ DeepWeeds: 17.509 ảnh RGB 256×256, 9 lớp gồm 8 loài cỏ dại và lớp Negative (thực vật không phải loài mục tiêu).
+
+Dữ liệu mất cân bằng lớp: Negative có 9.106 ảnh (khoảng 52%), mỗi loài cỏ chỉ có 1.009–1.125 ảnh. Vì vậy top-1 accuracy bị lớp Negative kéo cao. Chỉ số chính của bài là macro-F1: trung bình cộng F1 của 9 lớp, mỗi lớp nặng như nhau.
+
+Bài lab mở rộng Lab #2 trong slide Day 2. Bạn thử ít nhất 5 backbone, nhiều công thức huấn luyện và nhiều cách suy luận, rồi chọn cấu hình tốt nhất và báo cáo. Ba câu hỏi chính:
+
+1. Cùng một công thức huấn luyện, backbone nào cho macro-F1 val tốt nhất? Đánh đổi giữa chất lượng, kích thước và tốc độ ra sao?
+2. Mỗi yếu tố trong công thức huấn luyện (khởi tạo, augmentation, loss, LR…) đóng góp bao nhiêu?
+3. Các cách suy luận khác nhau thế nào về độ chính xác, hiệu chuẩn (calibration) và độ trễ?
+Bài lab chấm quy trình thực nghiệm (80 điểm) và chất lượng model (20 điểm). Kết quả test thấp nhưng thiết kế chặt chẽ, phân tích trung thực vẫn được nhiều điểm. Kết quả test cao nhưng chọn cấu hình bằng test hoặc không có bằng chứng thì bị trừ nặng.
+
+Hình thức: cá nhân. Bạn được trao đổi ý tưởng với bạn học, nhưng code, bảng và báo cáo phải là của riêng bạn.
+
+Bạn làm được gì sau bài này
+So sánh công bằng nhiều backbone (CNN và transformer) trên cùng một bài toán, cùng một công thức huấn luyện.
+Đo riêng đóng góp của từng yếu tố trong công thức huấn luyện (khởi tạo, augmentation, loss, optimizer/LR, EMA).
+So sánh các kỹ thuật suy luận (TTA, độ phân giải kiểm tra, ensemble, hiệu chuẩn, gộp BatchNorm/FP16) bằng cả độ chính xác lẫn độ trễ đo đúng cách.
+Phân biệt chênh lệch thật với nhiễu do hạt giống (seed) bằng mean ± std.
+Rút ra kết luận có bằng chứng, nêu rõ cấu hình nào tốt nhất và vì sao.
+Cần chuẩn bị
+Slide Day 2: chương 4 (backbone), chương 5 (huấn luyện), chương 6 (suy luận) và trang Lab #2.
+Đọc README.md, GUIDE.md và RUBRIC.md của repo trước khi bắt đầu.
+Kaggle Notebooks hoặc Google Colab, hoặc máy cá nhân có GPU (T4 trở lên).
+PyTorch, timm, openpyxl; numpy, pandas và scikit-learn để chạy eval.py và các test của repo.
+Git để clone repo bài lab.
+Lỗi thường gặp
+Quên model.eval() khi suy luận → BatchNorm dùng thống kê batch, kết quả phụ thuộc ảnh khác trong batch; luôn gọi eval() và torch.inference_mode()/no_grad() trước mọi đánh giá.
+Dùng time.time() trên GPU không đồng bộ → độ trễ sai; dùng torch.cuda.synchronize() hoặc CUDA event, có warmup.
+Đóng băng backbone mà BN vẫn ở train mode → thống kê BN bị cập nhật, kết quả khó hiểu; đặt phần đóng băng ở eval mode.
+Mixup/CutMix mà vẫn đo accuracy train như bình thường → hiểu sai đường cong training; dùng val để đánh giá.
+eval.py báo lỗi định dạng (thoát với mã 2) → sửa code ghi file của bạn, không sửa eval.py.
+Trước khi viết code, bạn cần ba thứ: một fork riêng để làm và nộp bài, thư mục bài làm đúng cấu trúc, và một môi trường có GPU. Bạn có thể làm trên Kaggle, Google Colab hoặc máy cá nhân. Quy tắc dữ liệu, cách chấm và sản phẩm nộp giống nhau ở mọi môi trường.
+
+Chọn môi trường nào?
+Môi trường gợi ý là Kaggle hoặc Google Colab:
+
+Nền tảng	Ưu điểm	Lưu ý
+Kaggle Notebooks (khuyên dùng)	GPU miễn phí theo hạn mức hằng tuần, phiên chạy ổn định, tắt trình duyệt vẫn chạy được bằng Save & Run All	Kiểm tra hạn mức GPU hiện hành trong tài khoản của bạn; cần bật Internet để tải dataset
+Google Colab	Khởi động nhanh, gắn Google Drive để lưu checkpoint	GPU miễn phí không được đảm bảo và có thể bị ngắt; phải lưu checkpoint và log ra Drive thường xuyên
+Nếu chạy trên máy cá nhân: dùng GPU từ T4 trở lên, bật mixed precision (AMP), và tự cài PyTorch, timm, openpyxl, numpy, pandas, scikit-learn.
+
+Ở môi trường nào cũng vậy: lưu mọi log, đường cong, logit dự đoán và checkpoint ra nơi lưu bền (Google Drive, Kaggle output hoặc ổ máy) ngay sau mỗi lần chạy, để phiên bị ngắt không làm mất kết quả.
+
+Lấy repo và tạo thư mục bài làm như thế nào?
+Bạn nộp bài bằng link repo GitHub của chính bạn. Bạn không có quyền push lên repo bài lab, nên hãy fork nó về tài khoản cá nhân rồi làm trên fork.
+
+1. Mở repo bài lab, chọn Fork → Create a new fork. Ở phần Owner, chọn tài khoản GitHub cá nhân. Đặt tên fork theo mẫu K4-DAY02-HoVaTen-MSSV (viết liền, không dấu) và để fork ở chế độ public.
+2. Clone fork, tạo thư mục bài làm submissions/<mssv>_<ho_ten_khong_dau>/, rồi chép starter/ thành code/ trong thư mục đó để hoàn thiện các TODO. Thay <username>, <mssv> và <ho_ten_khong_dau> bằng thông tin thật, bỏ dấu < >. Chọn lệnh theo môi trường:
+Lấy repo và chép starter/ thành code/
+Máy cá nhân (terminal)
+Colab / Kaggle (ô notebook)
+git clone https://github.com/<username>/K4-DAY02-HoVaTen-MSSV.git
+cd K4-DAY02-HoVaTen-MSSV
+git remote -v
+mkdir -p submissions/<mssv>_<ho_ten_khong_dau>
+cp -r starter submissions/<mssv>_<ho_ten_khong_dau>/code
+Chép
+Trên máy cá nhân, git remote -v phải trỏ về fork có username GitHub của bạn, không phải VinUni-AI20k.
+
+1. Mở lab_day2.ipynb trong code/. Ô đầu tiên cài timm và openpyxl, rồi đặt REPO_DIR = "K4-Track4-Day2-Deeplearning-Advance" (chú thích trong ô: đổi nếu bạn đặt chỗ khác). Vì bạn clone fork, thư mục repo mang tên fork. Trên Colab hoặc Kaggle, đổi REPO_DIR thành "K4-DAY02-HoVaTen-MSSV" theo đúng tên fork. Trên máy cá nhân, đặt REPO_DIR trỏ về gốc repo tính từ thư mục kernel đang chạy. Sửa dòng sys.path.insert(0, f"{REPO_DIR}/starter") để trỏ vào thư mục code/ của bạn.
+2. Chạy ô cài đặt. Ô này in phiên bản Python, PyTorch, timm và tên GPU. Nếu thấy KHÔNG CÓ GPU, hãy bật GPU (Kaggle: mục Settings; Colab: Change runtime type) rồi chạy lại.
+3. Chạy ô Tải dữ liệu. Ô này tải images.zip từ Zenodo (~490 MB), kiểm tra MD5 b7b30f96d466fba86016aa5a26606e0f, giải nén vào data/, và tải 4 file labels.csv, train_subset0.csv, val_subset0.csv, test_subset0.csv từ GitHub của tác giả. Ô dùng lệnh wget và unzip; nếu máy cá nhân không có hai lệnh này, tải thủ công theo link ở mục Dataset của README. Giải nén xong, dùng ls để xem ảnh nằm ở thư mục nào, rồi đặt IMAGES_DIR cho đúng.
+Trước khi sang Bước 00/6
+
+Đã clone fork `K4-DAY02-HoVaTen-MSSV` (public) của bạn, không phải repo bài lab.
+
+Đã có `submissions/<mssv>_<ho_ten_khong_dau>/code/` chép từ `starter/`.
+
+Notebook in ra tên GPU, không phải `KHÔNG CÓ GPU`.
+
+Ô tải dữ liệu qua được bước kiểm tra MD5.
+
+`IMAGES_DIR` trỏ đúng thư mục chứa các file `.jpg`.
+
+Đã chọn nơi lưu bền cho kết quả (Google Drive, Kaggle output hoặc ổ máy).
+Hoàn thành khi: notebook trong code/ import được các module, GPU sẵn sàng và dữ liệu khớp MD5. Từ đây bạn bắt đầu thí nghiệm thật.
+Lộ trình và ngân sách GPU
+Bài lab đi qua sáu bước: Bước 0 (hoàn thiện khung code, EDA, kiểm tra pipeline) → Bước 1 (backbone) → Bước 2 (công thức huấn luyện) → Bước 3 (suy luận) → Bước 4 (chung kết và eval.py) → Bước 5 (results.xlsx, biểu đồ, report.md).
+
+Mỗi lần chạy có một mã exp_id:
+
+B01...: so sánh backbone
+T01...: công thức huấn luyện
+I01...: phương pháp suy luận
+F01...: chung kết (nhiều seed)
+Bước	Việc chính	Tập dùng	Tối thiểu
+0	Hoàn thiện khung code, EDA và kiểm tra pipeline	train/val	bắt buộc
+1	So sánh backbone	val	≥ 5 backbone (có ít nhất 1 họ transformer và ít nhất 1 mạng nhẹ)
+2	Công thức huấn luyện	val	≥ 3 trục công thức huấn luyện, mỗi trục thử ít nhất 2–3 giá trị
+3	Suy luận và độ trễ	val	≥ 4 phương pháp suy luận và đo độ trễ p50/p95/p99
+4	Chung kết, chạy test	test	Cấu hình cuối cùng chạy ≥ 3 seed, báo cáo mean ± std
+5	results.xlsx, curves/, report.md	—	đủ 6 sản phẩm
+Quy tắc quan trọng nhất: mọi lựa chọn (kỹ thuật, mô hình, siêu tham số) đều chốt trên tập val. Test chỉ chạy một lần cho mỗi seed, ở Bước 4.
+
+Vai trò của từng tập dữ liệu trong quy trình
+Tập train
+
+Cập nhật trọng số mô hình
+
+Tập val
+
+Chọn backbone, siêu tham số, kỹ thuật suy luận, checkpoint, nhiệt độ T
+
+Chốt cấu hình tối ưu
+
+Tập test: chạy 1 lần duy nhất cho mỗi seed
+
+Xuất thư mục predictions/ và chạy eval.py
+
+Không có mũi tên nào đi từ test ngược về các quyết định. Nếu bạn xem điểm test rồi quay lại chỉnh cấu hình, con số test không còn đáng tin và bài bị trừ điểm theo RUBRIC.md.
+
+Bạn có đủ GPU không?
+Số lần huấn luyện tối thiểu khoảng: Bước 1 có 5–6 lần, Bước 2 có 10–15 lần, Bước 4 khoảng 3 lần (nhiều seed), chưa kể các lần chạy hỏng. Tổng cộng khoảng 20–25 lần huấn luyện. Thời gian mỗi lần phụ thuộc nhiều vào GPU, nên hãy tự đo:
+
+1. Chạy 1 epoch của mỗi backbone định dùng và ghi lại thời gian.
+2. Nhân với số epoch và số lần chạy dự kiến, rồi so với hạn mức GPU của bạn.
+3. Nếu không đủ, giảm theo thứ tự:
+Giảm số epoch từ 15 xuống 10.
+Chỉ làm ablation ở Bước 2 trên 1 backbone.
+Ablation chỉ chạy 1 seed; dành 3 seed cho Bước 4.
+Hạ độ phân giải ảnh khi huấn luyện.
+Ghi lại mọi điều đã giảm vào báo cáo.
+Hoàn thành khi: bạn đã đo thời gian 1 epoch của các backbone định dùng và có kế hoạch số lần chạy vừa với hạn mức GPU. Kế hoạch này quyết định bạn làm ablation trên 1 hay 2 backbone ở Bước 2.
+
+
+
+
+Bước 0 — Hoàn thiện khung code, EDA và kiểm tra pipeline
+Ở Bước 0, bạn viết phần code nền trong code/, tìm hiểu dữ liệu và chứng minh pipeline học được, trước khi tốn GPU cho thí nghiệm thật. Nhãn lệch với ảnh, dữ liệu rò rỉ giữa các tập, hay quên model.eval() khi suy luận đều làm sai kết quả mà không báo lỗi. Bước này giúp bạn bắt các lỗi đó sớm.
+
+starter/ chỉ có chữ ký hàm, docstring và các chỗ TODO. Bạn tự viết phần ruột: model, loss, augmentation, vòng huấn luyện, TTA, đo độ trễ. Riêng eval.py đã hoàn chỉnh và bạn không được sửa. Cách làm này giúp bạn hiểu từng kỹ thuật trong bài giảng, mà mọi người vẫn được đo bằng cùng một thước.
+
+Dữ liệu được chia theo quy tắc nào?
+Tác giả DeepWeeds đã chia sẵn 5 fold, mỗi fold là bộ ba file CSV 60% train / 20% val / 20% test. Dữ liệu được chia ngẫu nhiên, phân tầng theo lớp (riêng lớp Negative không phân tầng), không chia theo địa điểm chụp. Mọi sinh viên dùng chung một cách chia để kết quả so sánh được với nhau.
+
+#	Quy tắc
+S1	Dùng fold 0: train_subset0.csv, val_subset0.csv, test_subset0.csv. Tải nguyên bản từ GitHub của tác giả, không sửa, không lọc, không chia lại.
+S2	Train chỉ để cập nhật trọng số. Val dùng để chọn backbone, siêu tham số, phương pháp suy luận, checkpoint (early stopping) và khớp nhiệt độ T. Test chỉ để báo cáo kết quả cuối (xem Bước 4).
+S3	Không gộp val vào train, kể cả ở lần huấn luyện cuối cùng. Không huấn luyện trên test.
+S4	Không dùng bất kỳ thông tin nào từ test để quyết định gì: siêu tham số, ngưỡng, nhiệt độ T, thống kê chuẩn hoá, chọn model, chọn phương pháp suy luận.
+S5	Seed chỉ thay đổi khởi tạo head, thứ tự batch và augmentation ngẫu nhiên. Seed không được thay đổi cách chia.
+S6	Fold 1–4 chỉ dùng cho điểm thưởng, và khi dùng thì dùng đủ bộ ba file của cùng một fold.
+Nếu vi phạm S1–S6 (tự chia lại, gộp val vào train, sửa file CSV) mà chưa được giảng viên đồng ý, bài bị giới hạn tối đa 60 điểm.
+
+Mỗi file trong code/ làm gì?
+File	Bạn làm gì
+dataset.py	Đọc CSV, kiểm tra chia dữ liệu (S1–S4), transform và augmentation, Dataset, DataLoader
+model.py	Backbone qua timm, đóng băng, 3 nhóm tham số (slide trang 52), đếm params/GMAC
+losses.py	Label smoothing, focal loss, trọng số lớp, Mixup/CutMix
+train.py	Một hàm run(cfg) dùng chung: AMP, warmup + cosine, EMA, chọn checkpoint theo macro-F1 val, vẽ đường cong
+inference.py	TTA, gộp xác suất/logit, ensemble, temperature scaling, gộp BatchNorm
+benchmark.py	Đo độ trễ p50/p95/p99 đúng cách
+lab_day2.ipynb	Notebook Colab/Kaggle: phần cài đặt và tải dữ liệu đã viết sẵn, các ô TODO là phần của bạn
+Ở Bước 0, bạn hoàn thiện dataset.py, model.py, losses.py và train.py; inference.py và benchmark.py để sang Bước 3. Giữ nguyên tên hàm và kiểu dữ liệu vào/ra như docstring ghi (bạn được thêm hàm, tham số hoặc file mới). Đây là hợp đồng để notebook, train.py và eval.py ghép được với nhau. Ví dụ, docstring của dataset.py quy định DeepWeedsDataset[i] trả về (image_tensor, label:int, filename:str), vì eval.py cần tên file để ghép kết quả.
+
+Chỗ nào dễ viết sai?
+param_groups chia tham số thành 3 nhóm:
+1. Trọng số backbone có ndim > 1: LR backbone, có weight decay.
+2. Norm và bias của backbone (ndim <= 1): LR backbone, weight_decay = 0.
+3. Head mới: LR head (thường gấp 10 lần LR backbone). Bỏ qua tham số đã đóng băng (requires_grad == False).
+freeze_backbone: khi đóng băng backbone, BatchNorm cũng phải ở chế độ eval. Để ý chỗ gọi lại model.train() trong vòng huấn luyện, để BatchNorm không bị đưa về chế độ train.
+mix_batch: với CutMix, tính lại lam theo diện tích thật của vùng cắt sau khi bị cắt ở biên ảnh. class_weights chỉ tính từ số liệu của tập train, không dùng val hay test.
+evaluate: giữ đúng thứ tự ảnh của DataLoader để ghép logit với tên file.
+run(cfg): lưu checkpoint tốt nhất theo macro-F1 trên val (hòa thì lấy epoch sớm hơn). Chỉ số này phải tính bằng eval.compute_metrics của repo để khớp với lúc chấm. Chỉ tạo DataLoader cho test khi cờ cfg.save_test_predictions bật (mặc định tắt).
+Làm gì?
+1. Đọc và kiểm tra split. Hoàn thiện dataset.py, bắt đầu từ load_split và check_split. Gọi hai hàm này ở ô Bước 0, in kết quả ra notebook và ghi vào báo cáo:
+Số ảnh mỗi tập và số ảnh mỗi lớp trong từng tập. Tỉ lệ kỳ vọng xấp xỉ 60/20/20, tức khoảng 10.505 / 3.502 / 3.502 ảnh. Đây là số suy ra từ tỉ lệ; bạn ghi số đếm thật.
+Giao của từng cặp tập (train ∩ val, train ∩ test, val ∩ test) theo tên file phải rỗng. Hợp ba tập phải đúng 17.509 ảnh.
+Mọi file trong CSV đều có trong thư mục ảnh.
+1. Làm EDA. Vẽ biểu đồ cột phân bố lớp và tính tỉ lệ giữa lớp nhiều ảnh nhất và lớp ít ảnh nhất. Đối chiếu với Table 1 của bài báo (Negative 9.106 ảnh; các loài 1.009–1.125 ảnh). Xem ít nhất 3 ảnh mỗi lớp: cặp loài nào dễ nhầm bằng mắt thường, và lớp Negative trông ra sao. Xem kích thước và số kênh ảnh để chọn cách chuẩn hoá đầu vào.
+2. Hoàn thiện model.py → losses.py → train.py, theo đúng thứ tự. Sau mỗi file, viết một kiểm tra nhỏ, ví dụ focal loss với γ = 0 phải cho đúng cross-entropy, hoặc CutMix trộn cả ảnh lẫn nhãn. Mọi thí nghiệm đi qua một hàm train.run(Config(...)); muốn đổi thí nghiệm, đổi thuộc tính trong Config, đừng chép code. Khi ghi file dự đoán, dùng hàm có sẵn eval.save_predictions(...) (from eval import save_predictions), đừng tự định dạng file. Khi đã viết xong parse_overrides và main, bạn chạy được thí nghiệm từ dòng lệnh:
+python train.py --set exp_id=B01 backbone=resnet50 seed=0
+Chép
+1. Kiểm tra pipeline trước khi chạy thật. Chỉ bắt đầu thí nghiệm thật khi đã qua cả năm kiểm tra sau:
+Cố định seed cho random, numpy, torch và worker của DataLoader.
+Loss cross-entropy ban đầu với 9 lớp phải xấp xỉ -ln(1/9) ≈ 2,197. Nếu lệch xa, kiểm tra lại, nhất là phần head mới.
+Huấn luyện trên vài mẫu xem loss có xuống gần 0 không. Nếu không, lỗi nằm ở code hoặc model; đừng chạy tiếp.
+Vẽ vài ảnh sau augmentation (đã giải chuẩn hoá) để chắc ảnh và nhãn khớp nhau.
+Kiểm tra model.train()/model.eval() được gọi đúng lúc (ảnh hưởng BatchNorm và Dropout).
+1. Chạy bộ test của repo từ thư mục gốc (cần scikit-learn). Bộ test kiểm tra eval.py và khung code, không cần GPU:
+python -m unittest discover -s tests
+Chép
+Khi split không như kỳ vọng
+Nếu số đếm lệch rõ khỏi 60/20/20 (hơn khoảng 1 điểm phần trăm) hoặc có giao khác rỗng giữa các tập, hãy báo giảng viên trước khi huấn luyện.
+
+Hoàn thành khi: notebook in ra số ảnh từng tập và từng lớp, ba giao đều rỗng, hợp đủ 17.509 ảnh và không thiếu file. Có biểu đồ phân bố lớp và ảnh mẫu. code/ không còn NotImplementedError ở các phần dùng cho Bước 0–2, và có kiểm tra tự viết cho focal γ = 0 và CutMix. Loss ban đầu gần 2,197, một batch nhỏ overfit được, ảnh sau augmentation khớp nhãn, và lệnh run(Config(exp_id="B01", ...)) chạy hết, ghi ra history.csv, ảnh đường cong và file dự đoán val. Đây là bằng chứng cho mục A (12 điểm) và mục H của RUBRIC. Mục H còn chấm code đọc được, một hàm train dùng chung, kiểm tra tự viết cho gộp BN (làm ở Bước 3) và không sửa eval.py. Khi pipeline đã qua các kiểm tra này, khác biệt ở các bước sau mới thật sự đến từ backbone hay công thức, không phải từ lỗi dữ liệu.
+
+
+
+
+Bước 1 — So sánh backbone
+Mục tiêu: cùng một công thức huấn luyện nền, backbone nào cho macro-F1 val tốt nhất, và đánh đổi giữa độ chính xác, số tham số và tốc độ ra sao. Điểm mấu chốt là dùng cùng công thức: nếu mỗi backbone chạy một công thức khác nhau, bạn không biết chênh lệch đến từ kiến trúc hay từ công thức. Câu hỏi thực tế là backbone nào đủ tốt trong độ trễ cho phép.
+
+Chọn những backbone nào?
+Chọn ít nhất 5 backbone, có đủ:
+
+Ít nhất 1 mạng họ ResNet (làm mốc so sánh).
+Ít nhất 1 mạng ResNeXt hoặc ConvNeXt.
+Ít nhất 1 transformer (ViT, DeiT hoặc Swin).
+Ít nhất 1 mạng nhẹ (MobileNetV3, EfficientNet-B0, RegNet nhỏ...).
+Thiếu mỗi nhóm bị trừ 1 điểm; dưới 5 backbone thì phần này tối đa 5/12 điểm.
+
+Họ	Gợi ý (tên trong timm)	Ghi chú từ slide (trang 41–42)
+ResNet	resnet50	25,6M tham số, 4,1 GMAC; mốc mặc định
+ResNeXt	resnext50_32x4d	25,0M, 4,2 GMAC; thêm cardinality
+ConvNeXt	convnext_tiny	28,6M, 4,5 GMAC; "ResNet hiện đại hoá"
+ViT / DeiT	vit_small_patch16_224 hoặc deit_small_patch16_224	DeiT-S 22,1M, 4,6 GMAC; thiên kiến quy nạp yếu hơn CNN
+Swin	swin_tiny_patch4_window7_224	28,3M, 4,5 GMAC; attention cửa sổ
+Nhẹ	efficientnet_b0, mobilenetv3_large_100	EfficientNet-B0 0,39 GMAC, MobileNetV3-L 0,22 GMAC
+Bonus	DINOv2 ViT-S/B đóng băng + linear probe	Slide (trang 44) gợi ý khi nhãn ít
+Tag trọng số trong timm: một kiến trúc có nhiều bộ trọng số tiền huấn luyện (tag), mỗi bộ đến từ một công thức huấn luyện khác nhau. Tên tag có thể đổi theo phiên bản timm. Dùng timm.list_pretrained('resnet50*') để xem, và ghi rõ tag đã dùng vào results.xlsx. Bạn cũng có thể dùng torchvision.models.
+
+Công thức nền T00 gồm những gì?
+Mọi backbone ở Bước 1 dùng chung công thức dưới đây. Giá trị mặc định của Config trong train.py đã khớp với bảng (12 epoch, batch 64, LR 1e-4 cho backbone và 1e-3 cho head, weight decay 0.05).
+
+Thành phần	Giá trị đề xuất
+Khởi tạo	Trọng số tiền huấn luyện ImageNet, thay head mới 9 lớp, tinh chỉnh toàn bộ
+Đầu vào	Train: RandomResizedCrop(224) + lật ngang. Val/test: resize 256 rồi CenterCrop(224) hoặc dùng thẳng 256 (ghi rõ bạn chọn gì)
+Chuẩn hoá	Mean/std của ImageNet (hoặc đúng cấu hình của trọng số bạn dùng)
+Optimizer	AdamW
+LR	Backbone 1e-4, head mới 1e-3 (gấp 10 lần)
+Weight decay	0,05, không áp dụng cho norm và bias (weight_decay = 0)
+Lịch LR	Warmup khoảng 1 epoch, sau đó cosine về gần 0
+Loss	Cross-entropy
+Batch size	64 (giảm nếu hết bộ nhớ, và ghi lại)
+Epoch	10–15, giống nhau cho mọi backbone
+Mixed precision	Bật (AMP)
+Chọn checkpoint	Epoch có macro-F1 val cao nhất
+Công thức này là điểm xuất phát để so sánh công bằng. Với ViT hoặc Swin, LR có thể cần nhỏ hơn. Nếu đổi công thức nền, hãy đổi cho tất cả backbone và ghi lý do vào báo cáo.
+
+Làm gì?
+1. Huấn luyện từng backbone bằng công thức nền T00, 1 seed, cùng seed cho mọi backbone. Trong notebook, import from train import Config, run rồi lặp qua danh sách: run(Config(exp_id="B01", backbone=..., seed=0)).
+2. Với mỗi backbone, ghi: số tham số, GMAC (đếm bằng thư viện hoặc tự đếm), macro-F1 và top-1 trên val, thời gian train mỗi epoch, độ trễ suy luận sơ bộ (batch 1, đo một lần là đủ; Bước 3 đo kỹ).
+3. Lưu ảnh đường cong của từng backbone: curves/B0x_<ten>.png.
+4. Chọn 1–2 backbone đi tiếp sang Bước 2 và 3. Lý do phải có số liệu, ví dụ "tốt nhất về macro-F1" hoặc "cân bằng nhất giữa F1 và độ trễ".
+Hoàn thành khi: sheet Backbones có ít nhất 5 dòng đủ cột, mỗi B0x có ảnh đường cong, và bạn đã chọn 1–2 backbone kèm lý do bằng số liệu. Khi đọc bảng, thử trả lời: backbone nào hội tụ nhanh nhất? Có backbone nào overfit rõ (loss train giảm, loss val tăng) không? Thứ hạng trên DeepWeeds có giống thứ hạng trên ImageNet không? FLOPs có dự đoán được thời gian train và độ trễ không? Mỗi backbone mới chạy 1 seed, nên chỉ kết luận "tốt hơn" khi chênh lệch rõ ràng, và ghi chú rằng đây là kết quả 1 seed.
+
+
+
+
+Bước 2 — Công thức huấn luyện
+Mục tiêu: đo đóng góp riêng của từng yếu tố trong công thức huấn luyện, trên 1–2 backbone đã chọn ở Bước 1. Bước 1 giữ công thức cố định để so kiến trúc; Bước 2 giữ kiến trúc cố định để so công thức. Slide (trang 46) cho thấy nhiều cải tiến nhỏ cộng lại thành khoảng cách lớn, nhưng mỗi bước chỉ tăng một phần nhỏ. Vì vậy bạn phải đo từng bước riêng.
+
+Phải giữ những nguyên tắc nào?
+Nguyên tắc 1 — mỗi lần chỉ đổi một yếu tố. Hai cấu hình đem so chỉ khác nhau đúng một điểm. Mọi thứ khác giữ nguyên: cùng backbone, cùng số epoch, cùng seed khởi đầu, cùng cách chia dữ liệu. Đổi hai yếu tố cùng lúc thì bạn không biết yếu tố nào có tác dụng.
+
+Nguyên tắc 2 — so chênh lệch với nhiễu. Slide (trang 59) cho biết ResNet-50 lệch chuẩn khoảng 0,10 điểm qua 100 seed, nên chênh lệch dưới khoảng 0,3 điểm là nhiễu. Trên tập nhỏ như DeepWeeds, độ lệch có thể lớn hơn, nên hãy tự đo. Khi chênh lệch giữa hai cấu hình nhỏ hơn std, viết "không phân biệt được", đừng viết "A tốt hơn B".
+
+Chọn trục nào?
+Chọn ít nhất 3 trục trong bảng. Mỗi trục thử ít nhất 2 giá trị (một trong hai là giá trị của công thức nền), và ít nhất một trục là loss hoặc augmentation.
+
+Trục	Các giá trị nên thử	Câu hỏi cần trả lời
+A. Khởi tạo	từ đầu · đóng băng backbone, chỉ train head · tinh chỉnh toàn bộ	Với ~10k ảnh khác ImageNet, từ đầu có kịp không? Đóng băng có đủ không?
+B. Augmentation	cơ bản (crop + flip) · + đổi màu · TrivialAugment hoặc RandAugment · Mixup · CutMix	Phép nào giúp, phép nào hại? Lật dọc có hợp lệ với ảnh cỏ dại không?
+C. Hàm loss	CE · CE + label smoothing (ε ≈ 0,1) · focal loss (γ ≈ 2) · CE có trọng số theo lớp (hoặc class-balanced)	Với Negative áp đảo, loss nào cải thiện F1 các lớp hiếm?
+D. Cân bằng mẫu	không · sampler cân bằng lớp (oversample)	Sampler khác loss có trọng số như thế nào?
+E. LR và optimizer	LR backbone/head (cùng LR vs gấp 10 lần) · AdamW vs SGD+momentum · có/không warmup · LR theo tầng	Mạng tiền huấn luyện nhạy với LR đến mức nào?
+F. Chính quy hoá	có/không EMA trọng số · weight decay · stochastic depth · dropout head	EMA có giúp "miễn phí" không?
+G. Độ phân giải và thời gian huấn luyện	224 vs 256 · 10 vs 20 epoch	Công thức dài hơn có đáng không?
+Làm theo trình tự nào?
+1. Gọi cấu hình nền là T00. Mỗi lần chạy mới chỉ khác T00 đúng một yếu tố (Nguyên tắc 1).
+2. Làm các trục có tác động lớn trước (khởi tạo, loss, augmentation), rồi mới tinh chỉnh LR, EMA.
+3. Khi một yếu tố thắng rõ rệt, bạn được đưa nó vào cấu hình nền cho các thí nghiệm sau. Đánh dấu nền mới trong bảng. Cách này gọi là tham lam theo từng trục. Nếu dùng cách này, nêu rõ trong báo cáo, vì thứ tự các trục có thể làm kết quả khác đi.
+4. Thử ít nhất một kết hợp các yếu tố tốt nhất (ví dụ CutMix + label smoothing + EMA) để xem hiệu ứng cộng dồn hay triệt tiêu nhau.
+5. Mỗi thí nghiệm lưu một ảnh đường cong: curves/T0x_<mota>.png.
+Lưu ý khi cài đặt
+Mixup và CutMix trộn cả nhãn, nên loss phải dùng nhãn mềm hoặc tổng có trọng số của hai cross-entropy. Focal loss với γ = 0 phải cho đúng cross-entropy. Khi đóng băng backbone, giữ BatchNorm ở eval. Nếu dùng EMA, đánh giá bằng trọng số EMA. Giữ nguyên số epoch, trừ khi đang thử chính trục số epoch.
+
+ViT/Swin huấn luyện từ đầu: transformer có thiên kiến quy nạp yếu, nên khi train từ đầu trên tập dữ liệu nhỏ thường kém hơn CNN. Đó là kết quả hợp lệ để phân tích, không phải lỗi.
+
+Hoàn thành khi: sheet Training có ít nhất 3 trục. Mỗi dòng ghi trục thay đổi (A–G), điểm khác so với T00, seed, macro-F1 val, top-1 val và Δ so với T00. Có ít nhất một thí nghiệm kết hợp, và mỗi kết luận đều so Δ với std. Mục C của RUBRIC (16 điểm) chấm chính thiết kế có kiểm soát và cách bạn so chênh lệch với nhiễu. Công thức tốt nhất ở bước này là mô hình bạn mang sang Bước 3.
+
+
+
+
+Bước 3 — Suy luận và đo độ trễ
+Mục tiêu: với mô hình đã huấn luyện xong (không train lại), so sánh các cách suy luận về độ chính xác, hiệu chuẩn và độ trễ. Thử ít nhất 4 phương pháp khác nhau, không tính phương pháp mốc 1-view. Phần tăng độ chính xác chỉ có ý nghĩa khi đặt cạnh chi phí: TTA với K view tốn gần K lần một lượt chạy, trong khi robot ngoài đồng chỉ có một khoảng thời gian ngắn cho mỗi khung hình.
+
+Có những phương pháp nào?
+Mã	Phương pháp	Ghi chú
+I00	1 view (mốc)	Resize + center crop, model.eval()
+I01	TTA lật ngang (K = 2)	Slide trang 62, 75
+I02	TTA nhiều crop hoặc nhiều tỉ lệ (ví dụ 5 crop, hoặc 3 tỉ lệ)	K càng lớn, chi phí gần tuyến tính theo K (slide trang 63)
+I03	Gộp xác suất vs gộp logit	Slide chưa có kết luận cái nào luôn tốt hơn: chọn một, ghi rõ, hoặc so sánh cả hai
+I04	Dò độ phân giải kiểm tra (ví dụ 224 / 256 / 288 / 320)	Slide trang 68 (FixRes): test ở độ phân giải cao hơn lúc train có thể tốt hơn; không đổi tham số, chỉ tăng FLOPs
+I05	Ensemble vài mô hình (khác backbone hoặc khác seed)	Trung bình xác suất; chi phí = số mô hình (slide trang 67)
+I06	Trọng số EMA (nếu đã train có EMA) hoặc model soup	Không tốn thêm khi suy luận (slide trang 67)
+I07	Temperature scaling + ECE	Khớp một T duy nhất trên val, đo ECE trước và sau. Accuracy không đổi (slide trang 69)
+I08	Gộp BatchNorm vào conv hoặc FP16/AMP	Hiệu chỉnh/độ chính xác có thay đổi không? Đo độ trễ (slide trang 71)
+ECE và temperature scaling là gì?
+ECE (Expected Calibration Error) đo độ lệch giữa độ tin cậy và độ chính xác thật. Chia độ tin cậy thành 15 bin đều nhau; độ tin cậy là xác suất lớn nhất sau softmax. Công thức: ECE = Σ_m (n_m / n) · abs(acc_m − conf_m), với n_m là số ảnh trong bin m, acc_m và conf_m là accuracy và độ tin cậy trung bình của bin đó.
+Temperature scaling tìm một số T > 0 sao cho NLL trên tập val nhỏ nhất, với p = softmax(logit / T). Chia logit cho một số dương không đổi thứ tự các lớp, nên accuracy giữ nguyên. Tìm T trên val rồi áp dụng nguyên giá trị đó sang test. Không tìm T trên tập test.
+Làm gì?
+1. Dùng lại logit đã lưu. Khi chạy Bước 1 và 2, hãy lưu logit của val và test ra file .npy. Phần lớn thí nghiệm suy luận (ensemble, temperature scaling, gộp xác suất hay logit) chỉ là tính toán trên các file này, không cần GPU. Chỉ TTA, đổi độ phân giải và đo độ trễ mới cần chạy lại model.
+2. Hoàn thiện code/inference.py và chạy từng phương pháp trên val. Mọi hàm chạy ở chế độ eval, không tính gradient (torch.no_grad() hoặc torch.inference_mode()). Với fuse_conv_bn, kiểm tra đầu ra trước và sau khi gộp lệch nhau cỡ 1e-5 trở xuống. Kiến trúc không có BatchNorm (ViT, Swin, ConvNeXt dùng LayerNorm) không gộp BN được; ghi rõ điều này trong báo cáo.
+3. Hoàn thiện code/benchmark.py và đo độ trễ theo quy tắc ở khung bên dưới. Đo ở hai điều kiện: batch 1 (giống robot) và một batch lớn hơn (ví dụ 32, để tính số ảnh mỗi giây).
+4. Tổng hợp. Với mỗi phương pháp, ghi macro-F1 val, top-1 val, ECE (nếu đo), độ trễ p50/p95/p99 ở batch 1, và chi phí tương đối so với I00. Vẽ một biểu đồ scatter độ chính xác theo độ trễ.
+Đo độ trễ đúng cách
+Warmup: chạy 10 lần đầu và bỏ kết quả.
+Đồng bộ GPU: gọi torch.cuda.synchronize() ngay trước và ngay sau đoạn cần đo (hoặc dùng torch.cuda.Event(enable_timing=True)).
+Số lần đo: ít nhất 50 lần, báo cáo p50, p95, p99.
+Ghi điều kiện đo: tên GPU, kích thước ảnh, dtype, có gộp BN hay không, phiên bản PyTorch, và có tính tiền xử lý hay không.
+Ở batch 1, trên một số GPU, AMP có thể chậm hơn FP32 (slide trang 73). Hãy đo trên máy của bạn, đừng giả định. Đo độ trễ mà không synchronize hoặc không warmup bị trừ 3 điểm mỗi lỗi.
+
+Hoàn thành khi: sheet Inference có I00 và ít nhất 4 phương pháp khác. Sheet Latency có p50/p95/p99 kèm điều kiện đo. Có ECE trước và sau temperature scaling, với T tìm trên val. Có biểu đồ đánh đổi giữa độ chính xác và độ trễ. Slide cho rằng TTA và ensemble hợp với chạy ngoại tuyến (offline), còn trên robot nên dùng những thứ không tốn thêm chi phí suy luận (trọng số EMA, model soup, gộp BN, FP16, độ phân giải đã dò). Hãy xem dữ liệu của bạn có ủng hộ nhận định này không. Bạn cũng cần ít nhất một cấu hình có p95 ≤ 100 ms ở batch 1 cho tiêu chí I5.
+
+
+
+
+Bước 4 — Chung kết và eval.py
+Mọi lựa chọn đến đây đều dựa trên val. Bước 4 là lần duy nhất bạn mở tập test, và chỉ để báo cáo. Giảng viên tính lại chỉ số từ chính các file dự đoán bạn nộp để chấm phần I (20 điểm). Vì vậy file phải đúng định dạng, đủ số seed, và bạn không quay lại sửa mô hình sau khi đã xem kết quả test.
+
+Chung kết so với mốc nào?
+Sau khi chốt cấu hình trên val, huấn luyện lại cấu hình đó với ít nhất 3 seed, rồi chạy test một lần cho mỗi seed. Đồng thời chạy mốc so sánh (công thức nền T00 + suy luận 1-view I00) với cùng số seed. Tiêu chí I2 so mức tăng macro-F1 của chung kết so với mốc với std lớn hơn trong hai nhóm seed, nên chạy mốc đủ seed là bắt buộc.
+
+Làm gì?
+1. Chốt cấu hình dựa hoàn toàn trên val: backbone, công thức huấn luyện tốt nhất (Bước 2) và cách suy luận (Bước 3).
+2. Huấn luyện và chạy test cho cả chung kết lẫn mốc, bật save_test_predictions=True. Notebook có sẵn vòng lặp mẫu:
+for seed in (0, 1, 2):
+    run(Config(exp_id="F01", ..., seed=seed, save_test_predictions=True))
+    run(Config(exp_id="T00", seed=seed, save_test_predictions=True))
+Chép
+1. Lưu file dự đoán. Mỗi lần chạy test, lưu predictions/<exp_id>_seed<k>_test.csv với các cột Filename, y_true, y_pred, p0, p1, …, p8. p0..p8 là xác suất sau softmax, thứ tự lớp theo cột Label của labels.csv. Nếu dùng TTA, ensemble hay temperature scaling, ghi file bằng eval.save_predictions(...) từ xác suất cuối cùng. Nên kèm file dự đoán val của chung kết (*_val.csv) và bản chưa temperature scaling (*uncal*) để eval.py grade chấm được I4.
+2. Tính chỉ số và tự chấm phần I bằng eval.py:
+# Chỉ số của một cấu hình (nhiều seed): top-1, macro-F1, balanced acc, theo lớp, ECE, mean ± std
+python eval.py score --pred "predictions/F01_seed*_test.csv" \
+    --test-csv data/labels/test_subset0.csv --labels data/labels/labels.csv --tag F01 --out eval_out
+
+# Tự chấm phần I của RUBRIC (chung kết so với mốc)
+python eval.py grade --final "predictions/F01_seed*_test.csv" --baseline "predictions/T00_seed*_test.csv" \
+    --test-csv data/labels/test_subset0.csv --labels data/labels/labels.csv
+Chép
+score kiểm tra định dạng file (đủ cột p0..p8, xác suất cộng bằng 1, y_pred đúng argmax), đối chiếu tên ảnh và nhãn với test_subset0.csv, rồi in bảng và lưu JSON/CSV. grade tính điểm đề xuất cho I1–I4 (và I5 nếu bạn truyền --latency-p95-ms). Thêm --uncal để chấm I4(a) và --final-val để chấm I4(b). Ngưỡng điểm hiện là tạm thời, nằm ở đầu file eval.py.
+
+1. Phân tích lỗi. Vẽ ma trận nhầm lẫn trên test, chỉ ra cặp lớp bị nhầm nhiều nhất và đưa ra giả thuyết nguyên nhân (kèm vài ảnh bị đoán sai). Báo cáo phải có precision, recall và F1 cho Chinee apple và Snake weed, hai lớp khó nhất.
+Test chỉ chạy một lần mỗi seed
+Sau khi đã xem kết quả test, không quay lại sửa cấu hình rồi chạy test lần nữa. Nếu sau đó phát hiện lỗi, ghi lỗi vào báo cáo và nêu rõ con số test nào bị ảnh hưởng. Chọn cấu hình dựa vào test bị trừ 10–20 điểm.
+
+Hoàn thành khi: eval.py score chạy không lỗi trên mọi nhóm file, bạn đã chạy eval.py grade, và macro-F1, top-1, recall của Chinee apple và Snake weed trong báo cáo khớp với kết quả của eval.py. Nếu file sai định dạng, eval.py thoát với mã 2 và chỉ ra file, dòng bị sai; hãy sửa code ghi file của bạn, không sửa eval.py. Khi so với bài báo gốc (ResNet-50 95,7%, Inception-v3 95,1%; Chinee apple 88,5%, Snake weed 88,8%), nhớ rằng bài lab chỉ huấn luyện 10–15 epoch với công thức đơn giản hơn nhiều, nên kết quả thấp hơn là bình thường.
+
+
+
+
+Bước 5 — Sản phẩm results.xlsx, biểu đồ và báo cáo
+Các bước trước tạo ra số liệu; bước này sắp xếp chúng thành bằng chứng người chấm kiểm tra được. Mọi con số trong results.xlsx và báo cáo phải đến từ log chạy thật của bạn, truy ngược được tới một exp_id và một dòng log.
+
+results.xlsx cần những gì?
+Một file Excel gồm các sheet dưới đây. Mỗi dòng là một lần huấn luyện hoặc một cấu hình suy luận. Có thể ghi file bằng pandas.ExcelWriter(engine="openpyxl") như ô cuối của notebook gợi ý. exp_id phải trùng tên file ảnh trong curves/ (ví dụ B01_resnet50.png).
+
+Sheet	Cột bắt buộc
+Backbones	exp_id · backbone · tag trọng số · #tham số (M) · GMAC · độ phân giải · epoch · seed · macro-F1 val · top-1 val · thời gian train/epoch · độ trễ batch-1 (ms) · ghi chú
+Training	exp_id · backbone · trục thay đổi (A–G) · khác T00 ở điểm nào · seed · macro-F1 val · top-1 val · Δ so với T00 · F1 các lớp hiếm (nếu có) · ghi chú
+Inference	exp_id · phương pháp · mô hình/checkpoint dùng · K (số view hoặc số mô hình) · macro-F1 val · top-1 val · ECE val · độ trễ p50/p95/p99 (ms) batch-1 · thông lượng (ảnh/s) · chi phí tương đối so với I00
+Final	exp_id · cấu hình (backbone + công thức + suy luận) · seed · macro-F1 val · macro-F1 test · top-1 test · ECE test · mean ± std qua seed (dòng tổng hợp)
+PerClass	lớp · số ảnh test · precision · recall · F1 (cho cấu hình cuối cùng, dòng mốc và dòng tốt nhất)
+Latency	cấu hình · GPU · dtype · batch · gộp BN (có/không) · p50 · p95 · p99 · ảnh/s
+Summary	Bảng tổng hợp một trang: top 10 cấu hình theo macro-F1 val, cùng chi phí/độ trễ. Đây là bảng so sánh chính để đưa vào báo cáo
+Gợi ý trình bày: cố định hàng tiêu đề, dùng số chữ số thập phân thống nhất (ví dụ 4 chữ số), tô nổi bật dòng tốt nhất của mỗi sheet, ghi đơn vị trong tên cột. mean ± std có thể tách thành hai cột hoặc viết trong một ô dạng 0.9412 ± 0.0031, miễn là nhất quán.
+
+Biểu đồ huấn luyện cần gì?
+Mỗi thí nghiệm huấn luyện (B, T, F) có một ảnh curves/<exp_id>_<mota>.png, tối thiểu gồm:
+
+loss train và loss val theo epoch;
+macro-F1 (hoặc accuracy) val theo epoch (có thể thêm train);
+(khuyến khích) LR theo bước, để thấy warmup và cosine.
+Ảnh phải có tiêu đề (exp_id, backbone), nhãn trục và chú thích. Thiếu ảnh bị trừ 0,5 điểm mỗi thí nghiệm, tối đa 5 điểm.
+
+Báo cáo report.md gồm những phần nào?
+report.md (hoặc report.pdf) dài khoảng 4–8 trang:
+
+1. Tóm tắt (≤ 10 dòng): bài toán, các thí nghiệm đã làm, cấu hình tốt nhất và con số test cuối cùng (kèm std), kết luận chính.
+2. Dữ liệu và thiết lập: dataset, fold, phân bố lớp (biểu đồ EDA), chỉ số, công thức nền T00, phần cứng, phiên bản thư viện, seed.
+3. Kết quả so sánh backbone: bảng trích từ sheet Backbones, biểu đồ F1 theo độ trễ hoặc số tham số, nhận xét.
+4. Kết quả công thức huấn luyện: bảng ablation theo từng trục, kèm Δ và so với std.
+5. Kết quả suy luận: bảng, đường đánh đổi độ chính xác–độ trễ, ECE trước và sau temperature scaling.
+6. Cấu hình tốt nhất: mô tả đủ để người khác tái lập, bảng chung kết (mean ± std trên test), ma trận nhầm lẫn, phân tích lỗi bằng ảnh.
+7. Kết luận và khuyến nghị: cấu hình nào tốt nhất, tốt hơn mốc bao nhiêu, chênh lệch có vượt nhiễu không; yếu tố nào đóng góp nhiều nhất (backbone, công thức huấn luyện hay suy luận); nếu triển khai trên robot với ngân sách 30–100 ms/khung, bạn chọn cấu hình nào và vì sao.
+8. Hạn chế và việc tiếp theo: số seed, mới có một fold, các thí nghiệm chưa kiểm chứng, rủi ro lệch phân phối khi gặp dữ liệu thật (góc chụp, ánh sáng theo mùa, địa hình khác...).
+9. Phụ lục: danh sách exp_id và cấu hình đầy đủ, link notebook.
+Mọi khẳng định trong báo cáo phải dựa vào số trong results.xlsx. Viết thận trọng: chênh lệch nhỏ hơn nhiễu thì nói là "không phân biệt được". Dữ liệu gốc được chia ngẫu nhiên, không theo địa điểm, nên điểm test có thể hơi lạc quan; hãy nêu điều này trong phần Hạn chế.
+
+Hoàn thành khi: results.xlsx có đủ 7 sheet, mọi thí nghiệm huấn luyện có ảnh trong curves/, mỗi khẳng định trong báo cáo trỏ được về một ô trong bảng, và số liệu khớp với kết quả của eval.py. Mỗi chỗ số liệu mâu thuẫn với số tính lại từ predictions/ hoặc giữa các bảng với nhau bị trừ 1 điểm, tối đa 5 điểm.
+
+
+
+

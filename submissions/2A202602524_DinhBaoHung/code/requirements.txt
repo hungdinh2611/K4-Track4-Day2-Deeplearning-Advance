@@ -1,0 +1,10 @@
+# Install torch and torchvision separately using the official PyTorch selector
+# so the wheel matches the machine's CUDA runtime.
+numpy
+pandas
+Pillow
+matplotlib
+timm
+fvcore
+openpyxl
+scikit-learn
